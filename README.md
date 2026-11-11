@@ -17,6 +17,7 @@ Read in this order.
 | [`docs/feasibility.md`](docs/feasibility.md) | What each channel's API allows, risks, and the spike plan |
 | [`docs/architecture.md`](docs/architecture.md) | The ten layers, which may call which, cross-cutting mechanisms, stack |
 | [`docs/domain-model.md`](docs/domain-model.md) | Entities and how they relate |
+| [`docs/data-strategy.md`](docs/data-strategy.md) | What is stored, retrieved, sent out and deleted |
 | [`docs/invariants.md`](docs/invariants.md) | Rules that must always hold, with how each is enforced and tested |
 | [`docs/workflows/investor-document-request.md`](docs/workflows/investor-document-request.md) | State machine and low-level design of the first workflow |
 | [`docs/adr/`](docs/adr/) | Architecture decisions and the alternatives considered |

@@ -69,7 +69,7 @@ Three capabilities apply to every layer: security and governance, reliability an
 5. Rules that must always hold are written as [invariants](invariants.md), and each has an automated test.
 6. Every failure that reaches a person becomes a regression case in the [evaluation set](evaluation.md).
 7. Every external call has a timeout, is safe to retry, and ends in a recorded success or a recorded failure.
-8. Message content is stored only where a later decision needs it, with a stated retention period. The period is an [open question](open-questions.md).
+8. Message content is stored only where a later decision needs it, with a stated retention period. See the [data strategy](data-strategy.md); the period is an [open question](open-questions.md).
 
 [`AGENTS.md`](../AGENTS.md) turns these into instructions for coding agents.
 
@@ -88,6 +88,7 @@ Three capabilities apply to every layer: security and governance, reliability an
 | 3 | Begin Google verification: privacy policy, scope justification, security-assessment quote | Not started; required before a second founder connects |
 | 4 | One-pager, BRD, PRD | Drafted |
 | 5 | Architecture, domain model, invariants, decision records | Drafted |
+| 5a | Data strategy, API error format, rollback rules | Drafted |
 | 6 | First workflow: state machine and low-level design | Drafted; follow-up transitions not yet designed |
 | 7 | Evaluation format and first ten cases | Drafted |
 | 8 | Coding-agent instructions and three foundational skills | Drafted |

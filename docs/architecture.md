@@ -301,6 +301,38 @@ Rationale and alternatives: [ADR 0001](adr/0001-stack.md), [ADR 0004](adr/0004-e
 - The connector contract is versioned as a whole. A connector declares the contract version it implements.
 - The HTTP API is versioned under `/v1`.
 
+### HTTP error format
+
+Every non-2xx response from the HTTP API has this body:
+
+```json
+{
+  "error": {
+    "code": "approval_content_changed",
+    "message": "The draft changed after it was shown. Review it again.",
+    "trace_id": "trace_01",
+    "details": {}
+  }
+}
+```
+
+- `code` is a stable, lower-snake-case identifier that clients branch on. Codes are part of the `/v1` contract: adding one is compatible, and changing or removing one requires a new API version.
+- `message` is for display and may change. It never contains message content, credentials or another founder's data.
+- `trace_id` matches the trace recorded for the request.
+- `details` is optional and holds field-level validation errors as `{field: reason}`.
+
+| Status | Used for |
+| --- | --- |
+| `400` | Malformed request or failed validation |
+| `401` | Missing or expired session |
+| `404` | Unknown ID, including an ID that belongs to another founder (INV-1) |
+| `409` | The request conflicts with current state: a transition the state machine does not allow, an approval whose `content_hash` no longer matches, an item already decided or withdrawn |
+| `422` | Well-formed but not permitted by policy, such as approving a blocked Action |
+| `429` | Rate limit |
+| `500`, `503` | Internal failure or a dependency unavailable. No state change is reported as made unless it was committed |
+
+Each workflow document lists the `code` values its endpoints can return.
+
 ## 8. Assumptions and open questions
 
 Assumptions made to complete this document:

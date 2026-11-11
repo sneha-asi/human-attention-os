@@ -13,6 +13,7 @@ Each topic has one owning document. Read the owner before changing anything it c
 | Business goals and constraints | `docs/brd.md` |
 | The ten layers, their boundaries and interfaces, stack | `docs/architecture.md` |
 | Entities and their relationships | `docs/domain-model.md` |
+| What is stored, sent out, retained and deleted | `docs/data-strategy.md` (index; the cited FR, NFR and INV are binding) |
 | Rules that must always hold (INV-n) | `docs/invariants.md` |
 | MVP workflow: state machine and LLD | `docs/workflows/investor-document-request.md` |
 | Decisions and their reasons | `docs/adr/` |

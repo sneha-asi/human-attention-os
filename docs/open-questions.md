@@ -35,6 +35,9 @@ Decisions the documents could not take from the blueprint. Each has the default 
 | 17 | After a founder deletes their account, are content-free audit records kept? | Either is allowed. | `invariants.md` INV-4 and INV-17 |
 | 18 | Do message bodies need field-level encryption in addition to encrypted volumes? | No. | `architecture.md` section 5A |
 | 19 | Where is the pilot hosted? | Undecided. Local disk and Docker Compose only so far. | `architecture.md` section 6 |
+| 30 | Who owns stored data, and may Axon use it for anything beyond serving that founder, such as pooled evaluation? | The founder owns it. No use across founders. | `data-strategy.md` section 6, `brd.md` |
+| 31 | When a founder disconnects Gmail without deleting the account, is stored content kept? | Kept until retention expiry or account deletion. | `data-strategy.md` section 5, `prd.md` FR-4 |
+| 32 | After a wrong send, may Axon propose or send a correction? | No. The founder handles it; any further message is a new Action that needs approval. | `workflows/investor-document-request.md` section 10 |
 
 ## Domain model
 

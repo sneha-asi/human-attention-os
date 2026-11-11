@@ -220,6 +220,18 @@ HTTP endpoints used by the web app for this workflow:
 | `POST /v1/workflows/{id}/cancel` | Cancel (T22, T19) |
 | `POST /v1/workflows/{id}/reprocess`, `/retry`, `/confirm` | Resolve an escalation (T17, T18, T23) |
 
+Errors use the [HTTP error format](../architecture.md#http-error-format). Codes these endpoints return:
+
+| Code | Status | When |
+| --- | --- | --- |
+| `not_found` | `404` | No such Workflow or Action for this founder |
+| `invalid_transition` | `409` | The Workflow is not in a state that allows the request |
+| `approval_content_changed` | `409` | `content_hash` does not match the current Action |
+| `approval_withdrawn` | `409` | The approval item was withdrawn or expired |
+| `already_decided` | `409` | An Approval is already recorded for the Action |
+| `action_blocked` | `422` | The Policy Decision is `blocked`; the Permission must change first |
+| `validation_failed` | `400` | A field is missing or malformed |
+
 An approval with `edited_body` updates the Action body, recomputes `content_hash`, records the edit as a feedback signal, and stores the Approval against the new hash. The founder cannot edit the recipient. The founder may switch the attachment to another registered Document version, which re-runs the policy gate before the Approval is accepted.
 
 ## 7. Events
@@ -314,6 +326,13 @@ Normalisation details specific to Gmail:
 | Bounce after `COMPLETED` | — | Recorded on the Conversation (`bounced`) and shown in the inbox. The Workflow stays `COMPLETED`; a new Task is opened for the founder. |
 
 No handler converts an error into a success status ([INV-15](../invariants.md)).
+
+### Rollback
+
+- **Inside Axon.** Each transition and the records it writes commit in one database transaction. If any part fails, none of it is applied and the job is retried.
+- **Before the send call.** The only external artefact is the Gmail draft. Cancellation deletes it (section 2), so the workflow leaves nothing behind.
+- **After the send call.** A sent email cannot be recalled, so there is no rollback. The workflow relies on the checks that run before sending: the policy gate, the content hash on the Approval, and the idempotency key. If a send turns out to be wrong, Axon records the Outcome Checks and shows the Action in history; it does not send a correction on its own. Whether it should propose one is [open question 32](../open-questions.md).
+- **Uncertain sends.** When Axon cannot tell whether a send happened, it reconciles against the thread (section 9) and escalates if that is inconclusive. It never retries a send whose outcome is unknown.
 
 ## 11. Founder-visible status
 
