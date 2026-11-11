@@ -1,6 +1,6 @@
 # Axon — Product Requirements Document
 
-This document specifies what the first release of Axon does. Background is in the [one-pager](one-pager.md). Business objectives and metrics are in the [BRD](brd.md). How the system is built is in the [architecture](architecture.md). Terms such as Contact, Identity, Action, and Permission are defined in the [domain model](domain-model.md).
+This document specifies what the first release of Axon does. Background is in the [one-pager](one-pager.md). Business objectives and metrics are in the [BRD](brd.md). How the system is built is in the [architecture](architecture.md). Terms such as Contact, Identity, Document, Action, Permission, and Approval are defined in the [domain model](domain-model.md). "The library" means the Founder's registered Documents. Statuses such as completed, failed, and blocked are the Founder-visible ones; their mapping to Workflow states is in the [workflow document](workflows/investor-document-request.md#11-founder-visible-status).
 
 ## 1. Users
 
@@ -19,9 +19,10 @@ One Founder, one Channel (Gmail), one Workflow: an investor emails the Founder a
 | A document library the Founder fills | Finding documents in Drive or the inbox |
 | Permissions with three tiers | Permissions learned from behaviour |
 | Drafting, approval, sending, and outcome verification | Sending follow-ups without the Founder's approval |
+| Proposing a follow-up when the Contact has not replied | Drafting or sending anything to an unknown sender |
 | A web app for setup, approvals, and history | Mobile app, voice |
 
-Messages that are not financial-document requests from a Contact are left untouched in Gmail. Axon records that it saw them and takes no Action.
+Messages from a Contact that are not financial-document requests are left untouched in Gmail. Axon records that it saw them and takes no Action. Messages from unknown senders are not interpreted (FR-7).
 
 ## 3. User workflows
 
@@ -72,15 +73,15 @@ The valid states and transitions for these workflows are defined in the [workflo
 | --- | --- |
 | FR-5 | The Founder can create, edit, and delete Contacts, each with one or more email Identities and one relationship category. |
 | FR-6 | Axon matches an inbound message to a Contact by exact match of the sender address against stored Identities. |
-| FR-7 | A message whose sender matches no Identity is marked as from an unknown sender. No reply is drafted or sent for it. |
+| FR-7 | A message whose sender matches no Identity is marked as from an unknown sender and listed for the Founder without a notification. It is not interpreted, and no reply is drafted or sent for it. |
 | FR-8 | From an unknown-sender item, the Founder can add the sender as a new Contact or attach the address to an existing Contact. The message is then processed as from that Contact. |
 
 ### Understanding
 
 | ID | Requirement |
 | --- | --- |
-| FR-9 | For each message from a known Contact, Axon produces a structured result: whether it is a financial-document request, which document is requested, a confidence value, and the text span it relied on. |
-| FR-10 | If the confidence is below a configured threshold, or the request matches more than one library document, Axon asks the Founder to confirm the request and the document before drafting. |
+| FR-9 | For each message from a known Contact, Axon produces a structured result (an Interpretation): whether it is a financial-document request, which document is requested, a confidence value, and the text span it relied on. |
+| FR-10 | If the confidence is below a configured threshold, or the request matches more than one Document, Axon asks the Founder to confirm the request and the Document before any draft is shown. Nothing is sent to the Contact. |
 | FR-11 | Axon retrieves prior Conversations with the Contact and identifies any open Commitment related to the request and any previous send of the same document. |
 | FR-12 | The retrieved history shown to the Founder links each item to its source Message. |
 
@@ -88,12 +89,13 @@ The valid states and transitions for these workflows are defined in the [workflo
 
 | ID | Requirement |
 | --- | --- |
-| FR-13 | The Founder can add, relabel, replace, and remove documents in the library and mark each as shareable or never-share. |
+| FR-13 | The Founder can add, relabel, replace, and remove Documents in the library and mark each as shareable or never-share. |
 | FR-14 | The Founder can set a Permission for a relationship category or a single Contact, for a document or document type, with tier auto-execute, approval required, or blocked. |
 | FR-15 | When more than one Permission applies, a Contact-level Permission overrides a category-level one. Among Permissions at the same level, the most restrictive applies. |
 | FR-16 | When no Permission applies, the tier is approval required. |
-| FR-17 | A document marked never-share is blocked for every Contact regardless of other Permissions. |
-| FR-18 | The tier is computed by application code from stored Permissions. Model output is never an input to whether an Action is permitted. |
+| FR-17 | A Document marked never-share is blocked for every Contact regardless of other Permissions. |
+| FR-18 | The tier is computed by application code from stored Permissions and recorded as a Policy Decision. Model output cannot grant a Permission or loosen a tier. |
+| FR-39 | A Permission of auto-execute applies only when the sender's address passes Gmail's authentication check, any Reply-To address equals the sender's, the Interpretation's confidence is at or above the threshold, and the Interpretation reports no instructions addressed to Axon inside the message. Otherwise the tier is approval required and the approval item states why. |
 
 ### Drafting and approval
 
@@ -104,8 +106,9 @@ The valid states and transitions for these workflows are defined in the [workflo
 | FR-21 | The Founder can approve, edit then approve, or reject an approval item. A rejection can carry a reason. |
 | FR-22 | The message sent is exactly the content the Founder approved, including edits. |
 | FR-23 | An approval applies to one Action. It does not change Permissions. |
-| FR-24 | The Founder is notified by email when an item needs them. The notification contains no content from the incoming message or the draft. |
+| FR-24 | The Founder is notified by email when an item needs their decision or input (an approval, a request that cannot proceed, a failed send). The notification contains no content from the incoming message or the draft. Blocked requests and unknown senders are shown in the web app without an email. |
 | FR-25 | If a new message arrives in the thread before a pending draft is approved, the pending item is withdrawn and the thread is processed again. |
+| FR-40 | A pending approval is followed by reminders and expires after a configured period. On expiry nothing is sent and the item is shown as expired. |
 
 ### Execution
 
@@ -114,7 +117,7 @@ The valid states and transitions for these workflows are defined in the [workflo
 | FR-26 | Axon sends the reply through the Founder's Gmail account, in the original thread, only after the tier check passes and any required approval is recorded. |
 | FR-27 | An Action results in at most one sent message, including after retries or restarts. |
 | FR-28 | A blocked Action is never sent. The Founder is told which Permission blocked it. Approving a blocked Action is not possible. The Founder must change the Permission first. |
-| FR-29 | If the requested document is not in the library, Axon sends nothing and asks the Founder to add it. Once it is added, the request continues from the tier check. |
+| FR-29 | If the requested Document is not in the library, Axon sends nothing and asks the Founder to add it. Once it is added, the Founder can have the request processed again. |
 
 ### Outcome tracking
 
@@ -195,8 +198,8 @@ The cases below use one setup. The Founder is Asha. Her Gmail is connected. Ravi
 
 - **Given** no Contact has the address maya@otherfund.example,
 - **when** that address sends "Please share your financial projections",
-- **then** no draft is created and nothing is sent;
-- **and** Asha sees an unknown-sender item offering to add the sender as a Contact.
+- **then** the message is not interpreted, no draft is created, and nothing is sent;
+- **and** Asha sees an unknown-sender item offering to add the sender as a Contact, and receives no email about it.
 - **When** Asha adds Maya as an Investor,
 - **then** the message is processed as in AC-1.
 
@@ -206,7 +209,8 @@ The cases below use one setup. The Founder is Asha. Her Gmail is connected. Ravi
 - **when** Ravi asks for "the Q3 cap table",
 - **then** nothing is sent, and Asha sees an item stating that the requested document is not in the library.
 - **When** Asha adds the document,
-- **then** the request continues from the tier check and behaves as in AC-1.
+- **and** has the request processed again,
+- **then** it behaves as in AC-1.
 
 ### AC-7 Blocked by permission
 
@@ -236,7 +240,7 @@ The cases below use one setup. The Founder is Asha. Her Gmail is connected. Ravi
 
 ### AC-11 Duplicate delivery
 
-- **Given** Gmail delivers the notification for Ravi's email twice,
+- **Given** Ravi's email is ingested from Gmail twice,
 - **then** one Message record, one Action, and at most one approval item exist.
 
 ### AC-12 Unclear request
@@ -278,20 +282,9 @@ The cases below use one setup. The Founder is Asha. Her Gmail is connected. Ravi
 - **Founder surface.** Approvals happen in a web app, with an email notification. The blueprint does not say where the Founder interacts with Axon.
 - **Contacts are entered by the Founder.** Axon does not infer who is an investor from the inbox in this release.
 - **Document library.** The Founder uploads the documents Axon may send. Axon does not search Drive or past attachments.
-- **Permission shape.** A Permission is (category or Contact) × (document or document type) × tier. Contact-level overrides category-level, and the most restrictive wins at the same level. The default is approval required.
-- **Blocked means not approvable.** The Founder must change the Permission to proceed. This keeps the blocked tier distinct from approval required.
-- **Founder Intelligence in the MVP** is explicit style notes and Permissions. Edits and rejections are recorded for later use and change nothing automatically.
-- **Follow-ups always need approval** in this release.
+- **Permission shape** (FR-14 to FR-17), **blocked means not approvable** (FR-28), and **follow-ups always need approval** (FR-33) are choices made here, not taken from the blueprint.
+- **Founder Intelligence in the MVP** is explicit style notes and Permissions (FR-34, FR-35).
 - **Out-of-scope messages are ignored silently.** Axon does not triage the rest of the inbox.
-- **Numeric values** in FR-2 (2 minutes) and NFR-5 (5 minutes) are proposals. Retry limits, the confidence threshold, the follow-up interval, and the deletion period are left as configuration.
+- **Numeric values** in FR-2 (2 minutes) and NFR-5 (5 minutes) are proposals. Timer values, retry limits, and the expiry period are in the [workflow document](workflows/investor-document-request.md). The confidence threshold, the follow-up interval, and the deletion period are left as configuration.
 
-### Open questions
-
-1. Should approvals also be possible by replying to the notification email, or from a phone app?
-2. Is the 5-minute latency in NFR-5 acceptable for an auto-send, or would founders prefer a deliberate delay so replies do not look automated?
-3. Should auto-sent replies be disclosed to the recipient as sent by an assistant?
-4. How many days without a reply should trigger a follow-up proposal?
-5. Should Axon propose Contacts and categories from the inbox during setup to shorten onboarding?
-6. Should a pending approval expire, and what happens to the request if it does?
-7. Which document types beyond financial projections belong in the first release, if any?
-8. What retention period applies to stored message content while the account is active?
+Open questions are collected in [open-questions.md](open-questions.md).

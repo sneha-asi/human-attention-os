@@ -75,11 +75,11 @@ A founder of an operating company who personally handles communication with inve
 | Authority | The model proposes. Deterministic code decides what is permitted. This rules out designs where the model's output triggers a send directly. |
 | Model dependence | Model providers are used through an interface so they can be replaced. |
 | Stakes | Messages go to investors and customers under the founder's name. An error is visible outside the company and may not be reversible. |
-| Team and time | Not yet defined. See open questions. |
+| Team and time | Not yet defined. See [open questions](open-questions.md). |
 
 ## 6. Business success metrics
 
-The blueprint sets no numeric targets. Targets are open questions and should be set after the pilot baseline is measured.
+The blueprint sets no numeric targets. Targets are [open questions](open-questions.md) and should be set after the pilot baseline is measured.
 
 | ID | Metric | How it is measured in the pilot | Target |
 | --- | --- | --- | --- |
@@ -114,12 +114,4 @@ At the end of the first pilot the business should have:
 - "Small number of founders" for the pilot is left unquantified. The metrics work for any number from one upward, but M-10 is not meaningful below about five.
 - M-4 relies on self-reported baselines because there is no instrumentation before Axon is connected.
 
-### Open questions
-
-1. What are the numeric targets for M-3 to M-10?
-2. How many founders are in the pilot, how long does it run, and how are they recruited?
-3. What stage and size of company is the target founder? A pre-seed founder and a Series B founder have different message volumes and different investors.
-4. What is the business model: subscription per founder, usage-based, or something else?
-5. Which regions will pilot founders be in? This decides which data-protection rules apply.
-6. What team, budget, and timeline are available for the first release?
-7. Which workflow comes second? Candidates from the blueprint are follow-ups, scheduling, and delegation.
+Open questions are collected in [open-questions.md](open-questions.md).

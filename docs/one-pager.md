@@ -50,10 +50,11 @@ The model interprets messages and proposes actions. Permissions and approvals ar
 
 The first version covers one workflow for one founder on Gmail: the investor document request above. See the [PRD](prd.md) for scope and the [architecture](architecture.md) for how it is built.
 
-Later versions add channels (WhatsApp, Slack, Teams, LinkedIn, calendars), more workflows, and a deeper model of how each founder decides. The long-term direction is an operating layer that handles execution as well as communication. That expansion depends on the first workflow proving reliable.
+Later versions add channels, more workflows, and a deeper model of how each founder decides. Which channels are reachable is set by the providers: Calendar, Outlook, Slack and Teams have official APIs, WhatsApp only for Business numbers, and LinkedIn messaging has none ([feasibility](feasibility.md)). The long-term direction is an operating layer that handles execution as well as communication. That expansion depends on the first workflow proving reliable.
 
 ## Related documents
 
 - [BRD](brd.md): business objectives, constraints, metrics
 - [PRD](prd.md): requirements, MVP scope, acceptance criteria
 - [Architecture](architecture.md): the ten layers and cross-cutting capabilities
+- [Open questions](open-questions.md): decisions still needed

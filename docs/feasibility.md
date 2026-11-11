@@ -19,7 +19,7 @@ Researched 2026-11-11. Scope: which communication channels Axon can read from an
 
 ## Gmail
 
-- **Scopes.** `gmail.readonly` and `gmail.modify` are restricted scopes; `gmail.send` is a sensitive scope. Reading a founder's inbox therefore puts Axon in the restricted tier. Source: https://developers.google.com/workspace/gmail/api/auth/scopes
+- **Scopes.** `gmail.readonly` and `gmail.modify` are restricted scopes; `gmail.send` is a sensitive scope. Reading a founder's inbox therefore puts Axon in the restricted tier. Source: https://developers.google.com/workspace/gmail/api/auth/scopes. The tier of `gmail.compose`, which the design uses for sending, was not checked; **unverified**.
 - **Security assessment.** An app that requests restricted scopes and can access the data from or through a third-party server must pass a security assessment, run under the CASA framework by a Google-approved assessor, and repeat it at least every 12 months. Source: https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification
 - **Cost and time.** The only Google-published figures found are on the Google Health API page: 2–3 weeks for tier 2, 4–6 weeks for tier 3, and third-party fees of $500 to $4,500. Source: https://developers.google.com/health/app-verification. Whether these figures apply unchanged to Gmail is **unverified**. Third-party pages quote from about $550 to $75,000; treat those as **unverified**.
 - **Before verification.** A project in Testing status is limited to 100 listed test users, and their authorisations and refresh tokens expire after seven days. Source: https://support.google.com/cloud/answer/15549945. An unverified app requesting sensitive or restricted scopes is capped at 100 new users. Source: https://support.google.com/cloud/answer/7454865. An app set to Internal user type is exempt from the cap and the unverified-app screen but only works for users in the same Google Workspace organisation. Source: https://support.google.com/cloud/answer/13464323
@@ -90,11 +90,11 @@ One founder mailbox (a test Google account), Gmail only, the investor-requests-p
 
 | # | Check | Pass criterion |
 | --- | --- | --- |
-| 1 | Connect to the API | OAuth completes for the test account with `gmail.modify` and `gmail.send`; a refresh token is stored encrypted and used to obtain a new access token without user interaction. |
-| 2 | Ingest reliably | 50 test emails sent over one hour, including a burst of 10 in 5 seconds; all 50 are ingested exactly once, with push disabled for part of the run to force the history fallback. |
+| 1 | Connect to the API | OAuth completes for the test account with the scopes the design uses, `gmail.readonly` and `gmail.compose` ([ADR 0005](adr/0005-gmail-draft-then-send.md)); a refresh token is stored encrypted and used to obtain a new access token without user interaction. |
+| 2 | Ingest reliably | 50 test emails sent over one hour, including a burst of 10 in 5 seconds; all 50 are ingested exactly once by history polling, which is the MVP's ingest path. |
 | 3 | Normalise | Every ingested email, including a reply in a thread, a forwarded message and one with an attachment, produces a record that validates against the internal message schema with thread, sender, recipients and body populated. |
 | 4 | Retrieve context | For the test request, retrieval returns the three seeded prior messages that are relevant (a past promise, an earlier document share, an open question) and none from an unrelated seeded thread. |
-| 5 | Identify people | The investor writing from two different email addresses resolves to one contact; a different person with the same display name does not merge. |
+| 5 | Identify people | The investor writing from two addresses that are both stored as Identities resolves to one Contact; a different person with the same display name does not merge. |
 | 6 | Structured proposals | On 20 labelled emails, the model returns a proposal that validates against the action schema every time, and the intent label matches on at least 18. |
 | 7 | Permissions independent of the model | With sharing projections not authorised, the send is blocked even when the model's proposal says to send, including for an email that contains text instructing the system to send. Enforced in application code and covered by an automated test. |
 | 8 | Execute | An approved reply is sent through the Gmail API, lands in the original thread, and appears in the founder's Sent folder. |

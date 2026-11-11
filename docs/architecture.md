@@ -64,7 +64,7 @@ Channel API (Gmail)
                                                     │
                                                     ▼
                                           9 Outcome Tracking ──▶ 1 Integration (observe)
-                                                    │ event: outcome.verified
+                                                    │ event: outcome.checked
                                                     ▼
                                          7 closes or escalates the workflow
 ```
@@ -157,7 +157,7 @@ Deferred: customer-hosted storage, managed key service, vector index.
 | Outputs | Identity match: Contact or none, relationship category, whether the sender is verified, match basis. |
 | Must not | Create or merge Contacts on model output alone. Report an unauthenticated sender as verified. |
 
-MVP builds: founder-maintained Contacts with relationship category and email Identities; exact-match resolution on email address; verified flag derived from Gmail's authentication headers.
+MVP builds: founder-maintained Contacts with relationship category and email Identities; exact-match resolution on email address; verified flag derived from Gmail's authentication headers. A Message from an unknown sender is kept as metadata only and starts no Workflow.
 Deferred: cross-channel identity linking, suggested merges, inferred relationship categories.
 
 ### Layer 5: Context & Memory Layer
@@ -197,7 +197,7 @@ Deferred: commitment and decision extraction, multi-intent messages, model routi
 
 All transitions go through one transition function that checks the table in the [workflow document](workflows/investor-document-request.md#2-transitions) and writes the event in the same transaction.
 
-MVP builds: the investor document request workflow, timers for reminders and expiry, the founder inbox read model.
+MVP builds: the investor document request workflow, timers for reminders and expiry, the founder inbox read model, content-free notification emails to the founder through a transactional mail provider.
 Deferred: other workflow types, multi-step plans, delegation to people other than the founder.
 
 ### Layer 8: Execution Layer
@@ -212,7 +212,7 @@ Deferred: other workflow types, multi-step plans, delegation to people other tha
 Execution re-checks authorisation immediately before the side effect. It does not trust that Orchestration did.
 
 MVP builds: send a reply with one attachment in an existing Gmail thread, with retry, backoff and reconciliation.
-Deferred: scheduling meetings, follow-ups, other channels.
+Deferred: scheduling meetings, other channels.
 
 ### Layer 9: Outcome Tracking Layer
 
@@ -223,8 +223,8 @@ Deferred: scheduling meetings, follow-ups, other channels.
 | Outputs | Outcome check results; Conversation status (awaiting reply, replied, bounced). |
 | Must not | Infer success from the absence of an error. Mark a Workflow complete; it reports to Orchestration. |
 
-MVP builds: confirm the sent message exists in the thread with the expected recipient and attachment; detect bounces within a fixed window; record when the Contact replies.
-Deferred: follow-up proposals when no reply arrives, read receipts, meeting confirmation.
+MVP builds: confirm the sent message exists in the thread with the expected recipient and attachment; detect bounces within a fixed window; record when the Contact replies; open a follow-up Task when no reply arrives within the follow-up interval.
+Deferred: read receipts, meeting confirmation.
 
 ### Layer 10: Founder Intelligence Layer
 
@@ -248,12 +248,12 @@ Deferred: learning from feedback, style modelling from sent mail, suggested Perm
 | --- | --- |
 | Authentication | Founder signs in to the web app; sessions are bound to one User and one Founder. Channel access uses OAuth with the narrowest scopes that support the workflow (see [`feasibility.md`](feasibility.md)). |
 | Tenant isolation | Every table carries `founder_id`. PostgreSQL row-level security restricts each connection to the founder set for that request or job. |
-| Policy gate | A deterministic function `evaluate(proposed_action, facts) → decision`. Inputs: action type, Contact, relationship category, verified flag, Document, interpretation confidence, the founder's Permissions. Output: tier, reason codes, matched Permission IDs, policy version. The most restrictive matching rule wins. With no matching Permission the tier is approval required. |
+| Policy gate | A deterministic function `evaluate(proposed_action, facts) → decision`. Inputs: action type, Contact, relationship category, verified flag, Document, interpretation confidence and content-risk flag, the founder's Permissions. Output: tier, reason codes, matched Permission IDs, policy version. Resolution order is in [INV-7](invariants.md) and the [workflow LLD](workflows/investor-document-request.md#4-policy-evaluation-for-this-workflow). |
 | Approval workflow | An Approval is a founder decision bound to a hash of the Action's recipient, body and attachment. A change to any of them voids it. |
 | Authorisation check at execution | Execution refuses any Action that lacks a current policy decision of auto-execute or a valid Approval. |
 | Encryption | TLS in transit. OAuth tokens encrypted at field level. Database and object store on encrypted volumes. |
 | Audit log | The event log records every observation, proposal, decision, command and outcome with actor and provenance. It is append-only. |
-| Retention and deletion | Raw items and message bodies expire on a schedule. A founder can delete all their data; events remain as content-free tombstones or are removed with the founder, per the data strategy in [`prd.md`](prd.md). |
+| Retention and deletion | Raw items and message bodies expire on a schedule. A founder can delete all their data; what is stored and deleted is set by NFR-3 and FR-38 in [`prd.md`](prd.md). |
 
 ### B. Reliability & Evaluation
 
@@ -307,16 +307,10 @@ Assumptions made to complete this document:
 
 1. One backend deployable with separate `api` and `worker` processes, rather than one service per layer.
 2. The policy gate lives in a governance module that Orchestration and Execution both call. It is not an eleventh layer.
-3. With no matching Permission, the tier is approval required.
+3. Notification emails to the founder are sent by Orchestration through a transactional mail provider. This is not a channel side effect and does not go through Integration.
 4. Founder Intelligence in the MVP stores explicit preferences and feedback only. It does not learn.
 5. Context retrieval in the MVP uses structured queries. No embeddings.
 6. Gmail ingestion polls. Push notifications are deferred.
 7. A `Document` registry exists so the founder can state which files may be shared. The blueprint implies it but does not name it.
 
-Open questions:
-
-1. Which LLM provider and model to start with, and whether message content may be sent to a third-party model API under the pilot's privacy terms.
-2. Hosting target for the pilot (affects key management and the object store).
-3. Whether message bodies need field-level encryption in addition to volume encryption.
-4. Retention periods for raw items and message bodies.
-5. How the founder is notified of pending approvals outside the web app.
+Open questions are collected in [`open-questions.md`](open-questions.md).

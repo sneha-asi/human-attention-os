@@ -12,7 +12,7 @@ Axon sends communication on a founder's behalf. Model output is probabilistic an
 1. The Intelligence layer returns a structured interpretation and a draft. Neither contains a tier, a permission or a recipient.
 2. Orchestration builds a proposed Action from stored data and the model's output.
 3. A policy gate, written as ordinary code with no model call, evaluates the proposed Action against the founder's Permissions and a fixed set of facts. It returns one of three tiers: auto-execute, approval required, blocked.
-4. The most restrictive matching Permission wins. No matching Permission means approval required.
+4. Tier resolution follows INV-7: a never-share Document is blocked; Contact-level Permissions take precedence over relationship-level ones; the most restrictive wins within a level. No matching Permission means approval required.
 5. An Action is authorised only by an auto-execute decision or a founder Approval bound to a hash of the Action's content.
 6. Execution checks authorisation again immediately before the side effect.
 

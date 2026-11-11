@@ -18,6 +18,15 @@ If step 2 has an unknown outcome, the connector reconciles before any retry: a d
 
 This requires the `gmail.compose` scope.
 
+## Unverified
+
+[`../feasibility.md`](../feasibility.md) confirms that `gmail.readonly` is a restricted scope and `gmail.send` a sensitive one. It does not cover the points below, so they are assumptions until the spike checks them:
+
+- which verification tier `gmail.compose` falls in;
+- that Gmail removes a draft when it is sent;
+- that a thread read shortly after a send reliably includes the sent message;
+- the quota cost of polling `users.history.list` every 60 seconds.
+
 ## Alternatives considered
 
 - `users.messages.send` with retry. Rejected: no way to tell a lost response from a failed send.
@@ -27,4 +36,4 @@ This requires the `gmail.compose` scope.
 
 - A draft is briefly visible in the founder's Drafts folder.
 - Two API calls per send.
-- The reconciliation logic depends on Gmail removing a draft when it is sent and on thread reads being consistent shortly after. The feasibility spike ([`../feasibility.md`](../feasibility.md)) must confirm both; if either fails, this ADR is revisited.
+- If the spike disproves any point under Unverified, this ADR is revisited.

@@ -86,6 +86,8 @@ One normalised communication item.
 
 Key fields: `id`, `conversation_id`, `provider_message_id`, `direction` (`inbound`, `outbound`), `sender_identity_id` (nullable), `sender_handle`, `sender_verified`, `recipients`, `sent_at`, `body_ref`, `raw_ref`, `origin` (`external`, `founder`, `axon`).
 
+A Message from a sender with no matching Identity is kept as metadata only and has no body.
+
 Lifecycle: immutable after normalisation. `body_ref` and `raw_ref` are cleared when retention expires; the row and its metadata remain until the Conversation or Founder is deleted.
 
 ### Attachment
@@ -98,9 +100,11 @@ Inbound attachment content is fetched only when a workflow needs it.
 
 ### Document
 
-A file the Founder has registered as shareable, such as the financial projections.
+A file the Founder has registered with Axon, such as the financial projections.
 
-Key fields: `id`, `title`, `kind` (for example `financial_projections`), `version`, `content_hash`, `blob_ref`, `status` (`active`, `archived`).
+Key fields: `id`, `title`, `kind` (for example `financial_projections`), `version`, `content_hash`, `blob_ref`, `sharing` (`shareable`, `never_share`), `status` (`active`, `archived`).
+
+The set of a Founder's Documents is what the PRD calls the library. A `never_share` Document is blocked for every Contact.
 
 Lifecycle: uploading a new file creates a new version. Permissions refer to a Document or a `kind`. An Action records the exact version and hash it attaches.
 
@@ -116,7 +120,7 @@ Lifecycle: the entity is defined now; extraction is deferred past the MVP. When 
 
 A unit of pending work that Axon or the Founder owes, derived from a request or a Commitment. Example: "send financial projections to this investor".
 
-Key fields: `id`, `kind`, `contact_id`, `source_message_id`, `commitment_id` (nullable), `owner` (`axon`, `founder`), `due_at`, `status` (`open`, `done`, `dropped`).
+Key fields: `id`, `kind` (`document_request`, `follow_up`), `contact_id`, `source_message_id`, `commitment_id` (nullable), `owner` (`axon`, `founder`), `due_at`, `status` (`open`, `done`, `dropped`).
 
 Lifecycle: opened when a Workflow reaches `UNDERSTOOD`. Closed as `done` when the Workflow reaches `COMPLETED`, and as `dropped` when it ends in `REJECTED`, `BLOCKED` or `CANCELLED`. It stays `open` on `FAILED` so the founder still sees it.
 
@@ -132,7 +136,7 @@ Lifecycle: states and transitions are defined in the [workflow document](workflo
 
 Intelligence output for one Message in one Workflow.
 
-Key fields: `id`, `workflow_id`, `message_id`, `intent`, `requested_item`, `document_id` (nullable), `urgency`, `risks`, `confidence`, `model_id`, `prompt_version`, `context_item_ids`.
+Key fields: `id`, `workflow_id`, `message_id`, `intent`, `requested_item`, `document_id` (nullable), `urgency`, `risks`, `confidence`, `confirmed_by_founder`, `model_id`, `prompt_version`, `context_item_ids`.
 
 Lifecycle: immutable. Reprocessing creates a new Interpretation and marks the previous one superseded.
 
@@ -140,7 +144,7 @@ Lifecycle: immutable. Reprocessing creates a new Interpretation and marks the pr
 
 One operation on a Channel, from proposal to verified result. It covers the proposal, the command and the execution record of the same operation.
 
-Key fields: `id`, `workflow_id`, `type` (`send_email_reply`), `channel_account_id`, `recipient_identity_id` (or `recipient_handle` when the sender is not a Contact), `body_ref`, `document_id`, `document_hash`, `content_hash`, `status`, `idempotency_key`, `attempts`, `external_ref`, `last_error_class`.
+Key fields: `id`, `workflow_id`, `type` (`send_email_reply`), `channel_account_id`, `recipient_identity_id`, `recipient_handle`, `body_ref`, `document_id`, `document_hash`, `content_hash`, `status`, `idempotency_key`, `attempts`, `external_ref`, `last_error_class`.
 
 Status lifecycle:
 
@@ -216,8 +220,4 @@ Assumptions:
 4. An Identity belongs to one Contact. Shared mailboxes (for example `team@fund.com`) are modelled as a Contact for the organisation.
 5. Commitment is defined but not populated in the MVP.
 
-Open questions:
-
-1. Should relationship categories be a fixed list or founder-defined?
-2. Can a Contact hold more than one relationship (an investor who is also a customer)? The model currently allows one.
-3. Should a Permission be able to target a group of Contacts (for example, one fund) rather than one Contact or a whole category?
+Open questions are collected in [`open-questions.md`](open-questions.md).

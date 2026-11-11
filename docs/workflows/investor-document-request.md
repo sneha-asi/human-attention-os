@@ -19,7 +19,7 @@ Scope and acceptance criteria are in [`../prd.md`](../prd.md). Layer responsibil
 | `NO_ACTION` | The Message is not a request this workflow handles. | Yes |
 | `REJECTED` | The founder declined the proposed Action. | Yes |
 | `BLOCKED` | Policy forbids the Action. | Yes |
-| `CANCELLED` | The founder cancelled, or an approval request expired. | Yes |
+| `CANCELLED` | The founder cancelled or replied themselves, the Channel Account was disconnected, or an approval request expired. | Yes |
 | `FAILED` | An escalation was not resolved in time. | Yes |
 
 ```mermaid
@@ -55,12 +55,12 @@ Cancellation edges from `RECEIVED`, `UNDERSTOOD` and `APPROVED` are omitted from
 
 | # | From | To | Trigger | Guard |
 | --- | --- | --- | --- | --- |
-| T1 | (none) | `RECEIVED` | `message.ingested` consumed by Orchestration | Message is inbound, from an external sender, not automated mail, and the Conversation has no active Workflow. |
+| T1 | (none) | `RECEIVED` | `message.ingested` consumed by Orchestration | Message is inbound, not automated mail, its sender resolves to a Contact, and the Conversation has no active Workflow. A Message from an unknown sender starts no Workflow (see [section 3](#3-steps-by-layer)). |
 | T2 | `RECEIVED` | `UNDERSTOOD` | Orchestration job `understand` finishes | Intent is `document_request`, confidence at or above the interpretation floor, exactly one registered Document resolved, Action built. |
 | T3 | `RECEIVED` | `NO_ACTION` | `understand` finishes | Intent is anything else, with confidence at or above the floor. |
 | T4 | `RECEIVED` | `ESCALATED` | `understand` finishes or exhausts retries | Confidence below the floor (`ambiguous_request`); no or several candidate Documents (`missing_document`, `ambiguous_document`); model returned an invalid Document ID (`invalid_document`); model or schema failure after retries (`understanding_failed`). |
 | T5 | `UNDERSTOOD` | `APPROVED` | Policy gate returns `auto_execute` | All conditions of [INV-8](../invariants.md) hold. Action becomes `AUTHORISED`. |
-| T6 | `UNDERSTOOD` | `DECISION_PENDING` | Policy gate returns `approval_required` | Approval request created and shown in the founder inbox. |
+| T6 | `UNDERSTOOD` | `DECISION_PENDING` | Policy gate returns `approval_required` | Approval request created and shown in the founder inbox. A notification email with no message content is sent to the founder. |
 | T7 | `UNDERSTOOD` | `BLOCKED` | Policy gate returns `blocked` | None. The founder inbox shows the block and its reason. |
 | T8 | `DECISION_PENDING` | `APPROVED` | Founder approves in the web app | User is an `owner`. Approval `content_hash` equals the Action's. Policy gate re-run does not return `blocked`. |
 | T9 | `DECISION_PENDING` | `REJECTED` | Founder rejects | User is an `owner`. |
@@ -71,12 +71,13 @@ Cancellation edges from `RECEIVED`, `UNDERSTOOD` and `APPROVED` are omitted from
 | T14 | `EXECUTING` | `ESCALATED` | Execution gives up | Retryable errors exhausted (`execution_failed`); non-retryable error (`channel_auth_failed`, `channel_rejected`); reconciliation inconclusive (`outcome_unknown`). |
 | T15 | `VERIFYING` | `COMPLETED` | Outcome Tracking job `verify` | Sent message present in the thread with the expected recipient and attachment hash, and no bounce by the end of the bounce window. |
 | T16 | `VERIFYING` | `ESCALATED` | `verify` | Bounce detected or sent message does not match (`delivery_failed`); verification could not run for 24 hours (`verification_unavailable`). |
-| T17 | `ESCALATED` | `RECEIVED` | Founder chooses "reprocess" | Used after the founder fixes inputs (registers a Document, adds a Contact). Previous Interpretation and Action are superseded. |
+| T17 | `ESCALATED` | `RECEIVED` | Founder chooses "reprocess" | Used after the founder fixes inputs, for example registers the missing Document. Previous Interpretation and Action are superseded. |
 | T18 | `ESCALATED` | `UNDERSTOOD` | Founder chooses "retry" | Available for execution and channel reasons. Action is unsent (`FAILED`, not `SUCCEEDED` or `OUTCOME_UNKNOWN`). A new Action is created from the same content and policy is evaluated again. |
 | T19 | `ESCALATED` | `CANCELLED` | Founder dismisses | None. |
 | T20 | `ESCALATED` | `FAILED` | Timer: escalation expiry | Unresolved after 14 days. |
 | T21 | `UNDERSTOOD`, `DECISION_PENDING`, `APPROVED` | `RECEIVED` | New inbound Message in the same Conversation | Supersede: the new Message becomes the trigger. Interpretation, Action and any Approval are superseded. |
-| T22 | `RECEIVED`, `UNDERSTOOD`, `DECISION_PENDING`, `APPROVED` | `CANCELLED` | Founder cancels, or founder replies in the thread themselves | Nothing has been sent. Proposed or authorised Action becomes `CANCELLED`. |
+| T22 | `RECEIVED`, `UNDERSTOOD`, `DECISION_PENDING`, `APPROVED` | `CANCELLED` | Founder cancels, founder replies in the thread themselves, or founder disconnects the Channel Account | Nothing has been sent. Proposed or authorised Action becomes `CANCELLED`. |
+| T23 | `ESCALATED` | `UNDERSTOOD` | Founder confirms the request and selects the Document | Reason is `ambiguous_request` or `ambiguous_document`. A new Interpretation is stored with the founder's choice and marked `confirmed_by_founder`, which satisfies the confidence condition. Action built; policy is evaluated as usual. |
 
 Notes on specific paths:
 
@@ -85,7 +86,8 @@ Notes on specific paths:
 - **Cancellation after sending starts.** Once the send call has been issued, the Workflow cannot be cancelled. In `EXECUTING` before the send call, cancellation deletes the Gmail draft and moves the Action to `CANCELLED`. `VERIFYING` cannot be cancelled; the outcome is recorded.
 - **New Message during `EXECUTING` or `VERIFYING`.** The Message is stored. A new Workflow for it starts when the current one reaches a terminal state or `ESCALATED`.
 - **Founder replies manually.** An outbound Message from the founder in the Conversation while the Workflow is before `EXECUTING` triggers T22 with reason `founder_replied`.
-- **Escalation.** The only escalation target in the MVP is the founder. Every escalation carries a reason code, the evidence, and the available resolutions.
+- **Escalation.** The only escalation target in the MVP is the founder. Every escalation carries a reason code, the evidence, and the available resolutions, and sends the founder a notification email with no message content.
+- **Blocked.** A `BLOCKED` Workflow is shown in the founder inbox with the Permission or Document setting that blocked it. No notification email is sent.
 
 ## 3. Steps by layer
 
@@ -94,8 +96,8 @@ Notes on specific paths:
 | 1 | Integration | (before Workflow) | Raw Gmail message fetched via history polling |
 | 2 | Data Normalisation | (before Workflow) | Message, Conversation, Attachment metadata |
 | 3 | Data Storage | (before Workflow) | Rows written; `message.ingested` |
-| 4 | Decision & Orchestration | → `RECEIVED` | Workflow created |
-| 5 | Identity & Relationships | `RECEIVED` | Contact, relationship, `sender_verified` |
+| 4 | Decision & Orchestration | → `RECEIVED` | Workflow created, if the sender resolved to a Contact |
+| 5 | Identity & Relationships | (before Workflow) | Contact, relationship, `sender_verified`; or no match |
 | 6 | Context & Memory | `RECEIVED` | Context bundle |
 | 7 | Founder Intelligence | `RECEIVED` | Preference profile |
 | 8 | Intelligence | `RECEIVED` | Interpretation and draft |
@@ -105,6 +107,8 @@ Notes on specific paths:
 | 12 | Execution | `APPROVED` → `EXECUTING` | Reply sent through Integration |
 | 13 | Outcome Tracking | `VERIFYING` | Outcome Checks → `COMPLETED` or `ESCALATED` |
 | 14 | Founder Intelligence | after founder decision | Feedback signal recorded |
+
+Identity resolution runs when a Message is ingested, before T1. A Message whose sender matches no Identity is kept as metadata only (provider message ID, sender address, time; see NFR-3 in the [PRD](../prd.md)), is not interpreted, and is listed in the founder inbox as an unknown-sender item with no notification email. When the founder adds the sender as a Contact or attaches the address to an existing Contact, Integration fetches the Message again and T1 applies.
 
 ## 4. Policy evaluation for this workflow
 
@@ -116,16 +120,20 @@ Facts passed to the policy gate:
 | `contact_id`, `relationship` | Identity & Relationships |
 | `sender_verified` | Message (from Gmail authentication headers) |
 | `reply_to_matches_identity` | Normalisation: `Reply-To` absent or equal to the sender address |
-| `document_id`, `document_kind` | Action |
-| `interpretation_confidence` | Interpretation |
+| `document_id`, `document_kind`, `document_sharing` | Action, Document |
+| `interpretation_confidence`, `confirmed_by_founder` | Interpretation |
+| `content_risk` | Interpretation: true when it reports instructions addressed to Axon inside the Message |
 | `already_sent_same_version` | Context: a `SUCCEEDED` Action to this Contact with the same Document hash |
 
 Resolution:
 
-1. Collect active Permissions that match the action type and any of Contact, relationship, Document or Document kind.
-2. Tier = most restrictive among matches. No match gives `approval_required`.
-3. If the tier is `auto_execute` and any INV-8 condition fails, downgrade to `approval_required` and add the reason code (`unknown_contact`, `sender_unverified`, `reply_to_mismatch`, `low_confidence`).
-4. Record the Policy Decision with matched Permission IDs and reason codes.
+1. If the Document is marked `never_share`, the tier is `blocked` with reason `document_never_share`. Stop.
+2. Collect active Permissions that match the action type, the Contact or its relationship, and the Document or its kind.
+3. If any match names the Contact, tier = most restrictive among those. Otherwise tier = most restrictive among the matches on relationship. No match gives `approval_required`. ([INV-7](../invariants.md))
+4. If the tier is `auto_execute` and any INV-8 condition fails, downgrade to `approval_required` and add the reason code (`unknown_contact`, `sender_unverified`, `reply_to_mismatch`, `low_confidence`, `content_risk`).
+5. Record the Policy Decision with matched Permission IDs and reason codes.
+
+`content_risk` and `interpretation_confidence` come from model output. They can only make the tier more restrictive.
 
 `already_sent_same_version` does not change the tier. It is shown to the founder and passed to drafting.
 
@@ -142,12 +150,12 @@ Every table has `founder_id` and row-level security. Columns are listed where th
 | `messages` | Normalisation | `provider_message_id`, `direction`, `origin`, `sender_handle`, `sender_identity_id`, `sender_verified`, `reply_to`, `rfc822_message_id`, `body_ref`, `raw_item_id`; unique `(channel_account_id, provider_message_id)` |
 | `attachments` | Normalisation | `message_id`, `content_hash`, `blob_ref` |
 | `contacts`, `identities` | Identity & Relationships | unique `(founder_id, channel, handle)` on `identities` |
-| `documents` | Storage | `kind`, `version`, `content_hash`, `blob_ref`, `status` |
+| `documents` | Storage | `kind`, `version`, `content_hash`, `blob_ref`, `sharing`, `status` |
 | `preference_profiles`, `feedback_signals` | Founder Intelligence | one profile per Founder |
 | `permissions` | Governance | `action_type`, `relationship`, `contact_id`, `document_id`, `document_kind`, `tier`, `status` |
 | `workflows` | Orchestration | `type`, `state`, `trigger_message_id`, `conversation_id`, `trace_id`, `deadline_at`, `escalation_reason`; partial unique index on `conversation_id` for non-terminal states |
 | `tasks` | Orchestration | `kind`, `contact_id`, `status` |
-| `interpretations` | Orchestration (content from Intelligence) | `workflow_id`, `message_id`, `intent`, `confidence`, `document_id`, `model_id`, `prompt_version`, `superseded` |
+| `interpretations` | Orchestration (content from Intelligence) | `workflow_id`, `message_id`, `intent`, `confidence`, `document_id`, `model_id`, `prompt_version`, `confirmed_by_founder`, `superseded` |
 | `actions` | Orchestration (execution fields: Execution) | `workflow_id`, `type`, `recipient_handle`, `body_ref`, `document_id`, `document_hash`, `content_hash`, `status`, `idempotency_key` unique, `draft_ref`, `external_ref`, `attempts`, `last_error_class`; check `external_ref is not null` when `status = 'SUCCEEDED'` |
 | `policy_decisions` | Governance | `action_id`, `content_hash`, `tier`, `reason_codes`, `matched_permission_ids`, `policy_version`, `facts` |
 | `approvals` | Governance | `action_id`, `content_hash`, `decision`, `decided_by_user_id`; unique `(action_id, content_hash)` |
@@ -206,11 +214,11 @@ HTTP endpoints used by the web app for this workflow:
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /v1/inbox` | Workflows in `DECISION_PENDING` and `ESCALATED`, plus recent `BLOCKED` and `CANCELLED` (expired) |
+| `GET /v1/inbox` | Workflows in `DECISION_PENDING` and `ESCALATED`, recent `BLOCKED` and `CANCELLED` (expired), and unknown-sender items |
 | `GET /v1/workflows/{id}` | State, Message, Interpretation, Action, Policy Decision, timeline |
 | `POST /v1/actions/{id}/approval` | Body: `decision`, `content_hash`, optional `edited_body`, optional `reason` |
 | `POST /v1/workflows/{id}/cancel` | Cancel (T22, T19) |
-| `POST /v1/workflows/{id}/reprocess`, `/retry` | Resolve an escalation (T17, T18) |
+| `POST /v1/workflows/{id}/reprocess`, `/retry`, `/confirm` | Resolve an escalation (T17, T18, T23) |
 
 An approval with `edited_body` updates the Action body, recomputes `content_hash`, records the edit as a feedback signal, and stores the Approval against the new hash. The founder cannot edit the recipient. The founder may switch the attachment to another registered Document version, which re-runs the policy gate before the Approval is accepted.
 
@@ -241,6 +249,7 @@ Types emitted by this workflow:
 | `action.proposed` | Orchestration | Action created |
 | `policy.evaluated` | Policy gate | Each evaluation |
 | `approval.requested`, `approval.reminded` | Orchestration | T6 and reminder timers |
+| `founder.notified` | Orchestration | A notification or reminder email was handed to the mail provider |
 | `approval.recorded` | Governance | Founder decision |
 | `action.authorised` | Governance | Action becomes `AUTHORISED` |
 | `action.execution_attempted` | Execution | Each attempt; payload has attempt number |
@@ -258,9 +267,9 @@ These are the calls the design depends on. Confirmation that they behave as assu
 
 | Purpose | Call | Notes |
 | --- | --- | --- |
-| Connect | OAuth with `gmail.readonly` and `gmail.compose` | Read mail; create and send drafts. No delete or modify scope. |
+| Connect | OAuth with `gmail.readonly` and `gmail.compose` | Read mail; create and send drafts. No delete or modify scope. The verification tier of `gmail.compose` is not yet confirmed ([ADR 0005](../adr/0005-gmail-draft-then-send.md)). |
 | Initial cursor | `users.getProfile` | Store `historyId` as `sync_cursor`. No backfill of old mail in the MVP beyond the threads the workflow touches. |
-| Ingest | `users.history.list` from `sync_cursor`, polled every 60 seconds | On `404` (cursor too old), resync from `users.messages.list` for the last 7 days, then continue. |
+| Ingest | `users.history.list` from `sync_cursor`, polled every 60 seconds. Push through `users.watch` is deferred; history polling is the fallback Google recommends in any case. | On `404` (cursor too old), resync from `users.messages.list` for the last 7 days, then continue. |
 | Fetch message | `users.messages.get` with `format=raw` | Raw item stored, then normalised. |
 | Fetch thread | `users.threads.get` | For context and for verification. |
 | Create reply | `users.drafts.create` with `threadId`, `In-Reply-To` and `References` headers, attachment as MIME part | Returned draft ID stored on the Action as `draft_ref` before sending. |
@@ -272,6 +281,7 @@ Normalisation details specific to Gmail:
 
 - `sender_verified` is true when the `Authentication-Results` header added by Gmail reports a DMARC pass for the `From` domain.
 - A message is treated as automated, and starts no Workflow, when it has `Auto-Submitted` other than `no`, a `List-Unsubscribe` header, or a `mailer-daemon` or `postmaster` sender. Bounce messages are still passed to Outcome Tracking.
+- For a Message whose sender matches no Identity, the raw item and body are discarded after sender resolution and only metadata is kept.
 - Messages sent by Axon are recognised by matching `external_ref` and stored with `origin = axon`. Other messages from the founder's address have `origin = founder`.
 
 ## 9. Idempotency
@@ -305,24 +315,38 @@ Normalisation details specific to Gmail:
 
 No handler converts an error into a success status ([INV-15](../invariants.md)).
 
-## 11. Assumptions and open questions
+## 11. Founder-visible status
+
+The PRD and the web app describe requests in the founder's terms. They map to states as follows.
+
+| Founder sees | Workflow state | Action status |
+| --- | --- | --- |
+| Needs approval | `DECISION_PENDING` | `PROPOSED` |
+| Completed | `COMPLETED` | `SUCCEEDED` |
+| Rejected | `REJECTED` | `CANCELLED` |
+| Blocked | `BLOCKED` | `CANCELLED` |
+| Failed, can retry | `ESCALATED` with an execution or channel reason | `FAILED` |
+| Needs input | `ESCALATED` with `missing_document`, `ambiguous_request` or `ambiguous_document` | none |
+| Withdrawn or expired | `CANCELLED`, or superseded by T21 | `CANCELLED` |
+
+## 12. Follow-up proposal
+
+When a Workflow is `COMPLETED` and the Conversation is still `awaiting_reply` after the follow-up interval, Outcome Tracking opens a Task for the founder with kind `follow_up`. A follow-up is sent only as an Action that goes through the policy gate, and the gate returns `approval_required` for every follow-up regardless of Permissions. The states and transitions for drafting and approving a follow-up are not designed in this document yet; they must be added here before the feature is implemented.
+
+## 13. Assumptions and open questions
 
 Assumptions:
 
-1. Every inbound external Message that passes the automated-mail filter starts a Workflow. Those that are not document requests end in `NO_ACTION`.
+1. Every inbound Message from a known Contact that passes the automated-mail filter starts a Workflow. Those that are not document requests end in `NO_ACTION` and raise nothing for the founder.
 2. `VERIFYING` is a state of its own, added to the blueprint's sequence so that `COMPLETED` always means verified.
 3. A failed or ambiguous run goes to `ESCALATED` and the founder resolves it. `FAILED` is reached only when an escalation expires.
-4. The founder is told about pending approvals and escalations through the web app inbox only.
+4. The founder is told about pending approvals and escalations in the web app inbox and by a notification email that carries no message content (FR-24 in the [PRD](../prd.md)). The email goes through a transactional mail provider and is not sent from the founder's Gmail account.
 5. Timer values: reminders at 24 and 72 hours, approval expiry at 7 days, escalation expiry at 14 days, bounce window 15 minutes, poll interval 60 seconds.
 6. The reply goes to the sender address of the triggering Message, and only to that address. Other thread participants are not copied.
 7. The founder can edit the reply body and choose another registered Document version when approving, and cannot change the recipient.
 8. The reply is sent with draft-then-send so that an interrupted send can be reconciled ([ADR 0005](../adr/0005-gmail-draft-then-send.md)).
 9. Axon does not send any reply for `NO_ACTION`, `BLOCKED`, `REJECTED` or `CANCELLED`.
 
-Open questions:
+10. Follow-up proposals (FR-33 in the [PRD](../prd.md)) are specified only as far as section 12. Their transitions are not designed yet.
 
-1. Should an expired approval request cancel the Workflow (current design) or stay pending indefinitely?
-2. Should a reply go to all thread participants when the investor copied colleagues?
-3. When the same Document version was already sent to this Contact, should policy treat a repeat request differently?
-4. Should Axon send a holding reply ("the founder will get back to you") while a request waits for approval? The current design sends nothing.
-5. Is a 15-minute bounce window acceptable before marking `COMPLETED`, or should completion be immediate with bounces handled afterwards?
+Open questions are collected in [`../open-questions.md`](../open-questions.md).

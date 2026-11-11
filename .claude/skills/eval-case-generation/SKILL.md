@@ -12,7 +12,7 @@ A case fixes the inputs and states exactly what Axon must do with them. One case
 1. `docs/evaluation.md`: the schema, the allowed values and the existing cases.
 2. The workflow document under `docs/workflows/` for the states and decisions the case will assert on.
 3. `docs/invariants.md` and `docs/prd.md` for the INV-n and FR-n the case covers.
-4. `evals/cases/`: check the behaviour is not already covered.
+4. `evals/cases/` and the cases in `docs/evaluation.md`: check the behaviour is not already covered. Until the runner exists, `evals/cases/` is empty and the cases live in `docs/evaluation.md`.
 
 ## Where the output goes
 
@@ -36,6 +36,6 @@ One file per case: `evals/cases/<workflow>/<id>.yaml`, where `<id>` is the next 
 - [ ] No real names, addresses, companies or documents.
 - [ ] The case does not depend on another case having run.
 - [ ] A fault needed by the case is declared under `given.faults`, not assumed.
-- [ ] `covers` lists at least one FR-n or INV-n.
+- [ ] `covers` lists at least one FR-n, NFR-n or INV-n that exists in the PRD or the invariants.
 - [ ] The case index in `docs/evaluation.md` is updated.
 - [ ] An existing case's expected values were not changed to make a run pass.

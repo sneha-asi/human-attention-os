@@ -32,7 +32,7 @@ Produce a design specific enough that someone could implement the component from
 6. **Failure handling.** For each external call: timeout, retry policy, idempotency key, what is recorded, when a human is told.
 7. **Invariants.** Each relevant INV-n and the step or check that upholds it.
 8. **Tests.** The unit tests and the eval cases that must exist before this is done.
-9. **Assumptions and open questions.**
+9. **Assumptions.** Put questions for the user in `docs/open-questions.md`, with the default the design assumes.
 
 ## Checklist
 

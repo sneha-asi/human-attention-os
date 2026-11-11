@@ -45,21 +45,21 @@ A channel side effect happens only for an Action in status `AUTHORISED` whose au
 
 ### INV-6 Authorisation comes from the policy gate or the founder
 
-An Action becomes `AUTHORISED` only through a Policy Decision with tier `auto_execute` or an Approval with decision `approved` by an `owner` User. Model output cannot authorise.
+An Action becomes `AUTHORISED` only through a Policy Decision with tier `auto_execute` or an Approval with decision `approved` by an `owner` User. Model output cannot authorise. The two model-derived facts the gate reads, confidence and the content-risk flag, can only make the tier more restrictive.
 
 - Enforcement: one function performs the `PROPOSED → AUTHORISED` change and requires one of the two records. The policy gate is pure code with no LLM call. The Interpretation schema has no tier or authorisation field.
 - Test: property test over generated Interpretations, including ones with injected instructions and extra fields: the resulting tier depends only on the facts passed to the policy gate. A static check asserts the governance package does not import the LLM provider.
 
-### INV-7 The most restrictive rule wins
+### INV-7 Tier resolution is fixed, and blocked cannot be approved
 
-If any matching Permission is `blocked`, the tier is `blocked`. Otherwise, if any is `approval_required`, or none matches, the tier is `approval_required`. A blocked Action cannot be approved.
+A Document marked `never_share` gives `blocked` whatever Permissions exist. Otherwise, Permissions that name the Contact take precedence over Permissions that name its relationship; among Permissions at the same level the most restrictive wins; no match gives `approval_required`. A blocked Action cannot be approved.
 
-- Enforcement: tier resolution takes the maximum over an ordered enum. The approve endpoint re-runs the policy gate and refuses when the tier is `blocked`.
-- Test: table-driven tests over Permission combinations. An approve request against a blocked Action returns an error and leaves the Workflow in `BLOCKED`.
+- Enforcement: tier resolution is one function that applies these steps in order and takes the maximum over an ordered enum within a level. The approve endpoint re-runs the policy gate and refuses when the tier is `blocked`.
+- Test: table-driven tests over Permission combinations, including a Contact-level `auto_execute` with a relationship-level `blocked`, and a `never_share` Document with an `auto_execute` Permission. An approve request against a blocked Action returns an error and leaves the Workflow in `BLOCKED`.
 
-### INV-8 Auto-execute requires a verified, known sender and a confident interpretation
+### INV-8 Auto-execute requires a verified, known sender and a confident, clean interpretation
 
-An Action is never auto-executed when the triggering Message's sender is unverified, the sender is not a Contact, the reply address differs from the stored Identity, or interpretation confidence is below the threshold.
+An Action is never auto-executed when the triggering Message's sender is unverified, the sender is not a Contact, the reply address differs from the stored Identity, interpretation confidence is below the threshold, or the Interpretation reports instructions addressed to Axon inside the Message. A Message from an unknown sender starts no Workflow at all; the Contact condition here is a second check.
 
 - Enforcement: these facts are inputs to the policy gate, which downgrades `auto_execute` to `approval_required` and adds a reason code.
 - Test: for each condition, start from a scenario that auto-executes, flip the one fact, and assert `DECISION_PENDING` with the expected reason code.
@@ -150,7 +150,4 @@ Assumptions:
 1. The four example invariants in the blueprint are covered by INV-1, INV-5, INV-14 and INV-15. The rest are derived from the blueprint's engineering principles and the first workflow.
 2. The confidence threshold in INV-8 is a configuration value. Its starting value is set from evaluation results ([`evaluation.md`](evaluation.md)).
 
-Open questions:
-
-1. On Founder deletion, should content-free event tombstones be kept for audit, or should all events be removed? INV-4 and INV-17 currently allow either.
-2. Should an `owner` be able to approve an Action from an unverified sender, or should that be `blocked`? INV-8 currently allows approval with a warning.
+Open questions are collected in [`open-questions.md`](open-questions.md).
