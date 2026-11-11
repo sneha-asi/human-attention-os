@@ -2,7 +2,7 @@
 
 ## 1. Engineering thesis
 
-The product is not a chatbot with integrations. It is a **permissioned, event-driven execution system** that converts multilingual human communication into durable organizational state and safely moves routine work forward.
+The product is a **permissioned, event-driven execution system** that converts multilingual human communication into durable organizational state and moves routine work forward within policy.
 
 The hard engineering problems are:
 
@@ -61,7 +61,7 @@ Voice / text / integrations│   Ingestion Gateway   │
 
 ### 3.1 Event-sourced operational memory
 
-Never overwrite the truth of what happened. Store immutable events and derive current state from them.
+Store immutable events and derive current state from them. Nothing that happened is overwritten.
 
 Examples:
 
@@ -97,9 +97,9 @@ The model may suggest an action. The policy engine decides whether that action i
 Model suggestion → policy evaluation → risk classification → approval gate → command
 ```
 
-### 3.4 Uncertainty is a first-class state
+### 3.4 Uncertainty is stored, not resolved by guessing
 
-The system must preserve ambiguity rather than collapse it into a confident-looking answer.
+When the input is ambiguous, the system records the ambiguity and its candidates instead of picking one.
 
 Examples:
 
@@ -141,7 +141,7 @@ Canonical envelope:
 
 ### 4.2 Sarvam Language Runtime
 
-An abstraction over Sarvam capabilities, not a generic LLM wrapper.
+An abstraction over Sarvam capabilities.
 
 Responsibilities:
 
@@ -271,8 +271,6 @@ Executes approved action plans with:
 - human approval pauses;
 - full command and result history.
 
-The workflow runtime is the main difference between an AI wrapper and an operational system.
-
 ### 4.8 Connector Runtime
 
 All external systems use a common connector contract:
@@ -298,7 +296,7 @@ Connectors must support reconciliation because external systems can change indep
 
 ### 4.9 Exception Inbox
 
-The inbox is a prioritized human decision queue, not a notification feed.
+The inbox is a prioritized queue of decisions that need a human.
 
 Each item contains:
 
@@ -496,9 +494,7 @@ Measure separately:
 - action execution reliability;
 - user correction rate.
 
-The most important metric is not summary quality. It is:
-
-> **Percentage of routine work completed correctly without human intervention, while maintaining zero unauthorized actions.**
+The primary metric is the percentage of routine work completed correctly without human intervention, with zero unauthorized actions.
 
 ## 10. Build sequence
 
@@ -522,35 +518,4 @@ Add reminders, timers, evidence checks, reconciliation, and escalation.
 
 Add explicit preferences, behavior-based suggestions, confidence thresholds, and safe auto-execution.
 
-## 11. What makes this more than an AI wrapper
-
-- Event-sourced operational memory instead of chat history.
-- A semantic action graph instead of isolated prompts.
-- Policy-gated commands instead of direct model tool calls.
-- Durable workflows instead of one-shot automation.
-- Reconciliation with external systems instead of assuming success.
-- Human-attention routing instead of notification generation.
-- Provenance and evaluation for every decision.
-- Sarvam-native multilingual and voice execution.
-- Learning that improves convenience without weakening control.
-
-## 12. First vertical slice
-
-The first working system should demonstrate:
-
-```text
-Approved multilingual communication source
-→ Sarvam language processing
-→ commitment and owner extraction
-→ context and policy evaluation
-→ human-attention routing
-→ confirmed internal follow-up
-→ task creation
-→ status request
-→ evidence-based completion
-→ overdue escalation
-→ spoken or text briefing
-```
-
-The success criterion is not that the demo sounds intelligent. It is that a real cross-functional commitment moves from conversation to closure with less human coordination and a complete, trustworthy record of why the system acted.
-
+The first slice to build end to end is specified in [`BUILD_SPEC.md`](BUILD_SPEC.md). It succeeds when a real cross-functional commitment moves from conversation to closure with less human coordination and a complete record of why the system acted.
