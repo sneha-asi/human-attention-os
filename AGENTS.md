@@ -8,6 +8,7 @@ Each topic has one owning document. Read the owner before changing anything it c
 
 | Topic | Owner |
 | --- | --- |
+| Product direction, channel order, order of work | `docs/blueprint.md` |
 | Requirements (FR-n, NFR-n), MVP scope, acceptance criteria | `docs/prd.md` |
 | Business goals and constraints | `docs/brd.md` |
 | The ten layers, their boundaries and interfaces, stack | `docs/architecture.md` |

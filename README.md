@@ -10,6 +10,7 @@ Read in this order.
 
 | Document | Contents |
 | --- | --- |
+| [`docs/blueprint.md`](docs/blueprint.md) | Top-level plan: structure, channel order, engineering rules, order of work |
 | [`docs/one-pager.md`](docs/one-pager.md) | What Axon is, the problem, why founders first |
 | [`docs/brd.md`](docs/brd.md) | Business objectives, constraints, and how success is measured |
 | [`docs/prd.md`](docs/prd.md) | Requirements, MVP scope, acceptance criteria |
