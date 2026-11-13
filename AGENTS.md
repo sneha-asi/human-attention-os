@@ -21,6 +21,8 @@ Each topic has one owning document. Read the owner before changing anything it c
 | Channel API constraints and the spike plan | `docs/feasibility.md` |
 | Decisions the user has not made yet, with the default assumed | `docs/open-questions.md` |
 
+`docs/blueprint-original.md` is the original blueprint, kept as a record. Do not edit it; where it differs from `docs/blueprint.md`, the latter applies.
+
 `archive/human-attention-os/` is a superseded project. Do not use it as a source.
 
 If two documents disagree, stop and report the conflict. Do not pick one silently.
